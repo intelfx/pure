@@ -156,6 +156,11 @@ prompt_pure_preprompt_render() {
 	pp="%~"
 	preprompt+=("%F{blue}$pp%f")
 
+	# virtualenv
+	if [[ -n "$VIRTUAL_ENV" ]]; then
+		preprompt+=("%F{green}venv:${VIRTUAL_ENV:t}%f")
+	fi
+
 	# git info
 	if (( ${+prompt_pure_vcs[working_tree]} && ! ${+prompt_pure_vcs[unsure]} )); then
 		# branch and action
