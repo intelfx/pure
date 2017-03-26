@@ -140,6 +140,11 @@ prompt_pure_render_vcs() {
 
 	if (( log_enabled )); then log "prompt_pure_preprompt_render: $(declare -p prompt_pure_vcs | command tail -n1)"; fi
 
+	# virtualenv
+	if [[ -n "$VIRTUAL_ENV" ]]; then
+		preprompt+=("%F{green}venv:${VIRTUAL_ENV:t}%f")
+	fi
+
 	# git info
 	if (( ${+prompt_pure_vcs[working_tree]} && ! ${+prompt_pure_vcs[unsure]} )); then
 		# branch and action
