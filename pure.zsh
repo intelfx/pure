@@ -303,6 +303,15 @@ prompt_pure_async_vcs_info() {
 	# get vcs info
 	vcs_info
 
+	# ignore the dotfiles repository (~/) if we're not in a directory that explicitly belong to dotfiles.
+	#
+	# otherwise, even if we're deep in ~/Documents/some/long/path/unrelated/to/dotfiles,
+	# pure would still show us the dotfiles repository which we do not care about.
+	if [[ "${vcs_info_msg_0_}" == "$HOME" ]] && git check-ignore "$PWD" &>/dev/null; then
+		declare -p reply
+		return
+	fi
+
 	# output results: working tree, branch, action
 	reply[working_tree]=${vcs_info_msg_0_}
 	reply[branch]=${vcs_info_msg_1_}
