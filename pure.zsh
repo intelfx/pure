@@ -70,7 +70,7 @@ prompt_pure_set_title() {
 	# tell the terminal we are setting the title
 	print -n '\e]0;'
 	# show hostname if connected through ssh (but not in tmux)
-	[[ -z $TMUX && -n $SSH_CONNECTION ]] && print -Pn '(%m) '
+	[[ -z $TMUX && -n $SSH_CONNECTION ]] && print -Pn '(%n:%m) '
 	case $1 in
 		expand-prompt)
 			print -Pn $2;;
