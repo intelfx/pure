@@ -58,7 +58,7 @@ prompt_pure_clear_screen() {
 	# enable output to terminal
 	zle -I
 	# clear screen and move cursor to (0, 0)
-	print -n '\e[2J\e[0;0H'
+	print -n ${termcap[clear]}
 	# print preprompt
 	prompt_pure_preprompt_render precmd
 }
