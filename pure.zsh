@@ -55,12 +55,14 @@ prompt_pure_check_cmd_exec_time() {
 }
 
 prompt_pure_clear_screen() {
-	# enable output to terminal
-	zle -I
-	# clear screen and move cursor to (0, 0)
-	print -n ${termcap[clear]}
-	# print preprompt
-	prompt_pure_preprompt_render precmd
+	if [[ -o zle ]]; then
+		# enable output to terminal
+		zle -I
+		# clear screen and move cursor to (0, 0)
+		print -n ${termcap[clear]}
+		# print preprompt
+		prompt_pure_preprompt_render precmd
+	fi
 }
 
 prompt_pure_set_title() {
