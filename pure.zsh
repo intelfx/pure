@@ -477,6 +477,21 @@ prompt_pure_async_start() {
 	async_register_callback "prompt_pure" prompt_pure_vcs_async_fsm
 }
 
+prompt_pure_async_stop() {
+	setopt localoptions noshwordsplit
+
+	log "prompt_pure_async_stop: stopping async worker"
+	async_stop_worker "prompt_pure"
+}
+
+prompt_pure_async_restart() {
+	setopt localoptions noshwordsplit
+
+	prompt_pure_async_flush
+	prompt_pure_async_stop
+	prompt_pure_async_start
+}
+
 prompt_pure_async_flush() {
 	setopt localoptions noshwordsplit
 
@@ -506,7 +521,7 @@ prompt_pure_vcs_sync() {
 prompt_pure_vcs_async() {
 	async_job "prompt_pure" \
 		prompt_pure_async_vcs_info \
-		"$(builtin pwd)"
+		"$PWD"
 }
 
 # this is a poor man's semi-state machine
@@ -524,13 +539,13 @@ prompt_pure_vcs_async_fsm() {
 
 	case $job in
 		'[async]')
-			if (( code == 2 )); then
+			if (( code != 0 )); then
 				# our worker died unexpectedly
-				log "prompt_pure_vcs_async_fsm: worker died, restarting"
+				log "prompt_pure_vcs_async_fsm: worker died (rc=$code), restarting"
 				# XXX: work around "async_job:zpty:12: no such pty command: prompt_pure"
-				prompt_pure_async_flush
+				prompt_pure_async_restart
 				# XXX: do we want to restart async jobs here?
-				#prompt_pure_vcs_async
+				prompt_pure_async_vcs_info "$PWD"
 			fi
 			;;
 
