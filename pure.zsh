@@ -425,7 +425,7 @@ prompt_pure_async_git_fetch() {
 
 prompt_pure_async_start() {
 	log "prompt_pure_async_start: starting async worker"
-	async_start_worker "prompt_pure"
+	async_start_worker "prompt_pure" -u -n
 	async_register_callback "prompt_pure" prompt_pure_vcs_async_fsm
 }
 
