@@ -478,9 +478,10 @@ prompt_pure_async_start() {
 }
 
 prompt_pure_async_flush() {
-	log "prompt_pure_async_flush: stopping async worker"
+	setopt localoptions noshwordsplit
+
+	log "prompt_pure_async_flush: killing async tasks"
 	async_flush_jobs "prompt_pure"
-	prompt_pure_async_start
 	prompt_pure_async_reset
 }
 
