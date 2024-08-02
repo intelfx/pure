@@ -307,11 +307,13 @@ prompt_pure_precmd() {
 }
 
 prompt_pure_async_vcs_info() {
-	declare -A reply
+	setopt localoptions noshwordsplit
+	local dir=$1
 
 	# use cd -q to avoid side effects of changing directory, e.g. chpwd hooks
-	builtin cd -q "$*"
+	builtin cd -q $dir
 
+	declare -A reply
 	# get vcs info
 	vcs_info
 
