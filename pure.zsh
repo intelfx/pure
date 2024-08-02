@@ -681,8 +681,6 @@ prompt_pure_vcs_async_fsm() {
 }
 
 prompt_pure_setup() {
-	local autoload_name=$1; shift
-
 	if (( ${+PURE_DEBUG} )); then
 		exec 3> >(systemd-cat -t zshpure)
 
@@ -714,12 +712,9 @@ prompt_pure_setup() {
 
 	prompt_opts=(subst percent)
 
-	# if autoload_name or eval context differ, pure wasn't autoloaded via
-	# promptinit and we need to take care of setting the options ourselves
-	if [[ $autoload_name != prompt_pure_setup ]] || [[ $zsh_eval_context[-2] != loadautofunc ]]; then
-		# borrowed from `promptinit`, set the pure prompt options
-		setopt noprompt{bang,cr,percent,subst} "prompt${^prompt_opts[@]}"
-	fi
+	# borrowed from promptinit, sets the prompt options in case pure was not
+	# initialized via promptinit.
+	setopt noprompt{bang,cr,percent,subst} "prompt${^prompt_opts[@]}"
 
 	zmodload zsh/datetime
 	zmodload zsh/zle
@@ -834,4 +829,4 @@ prompt_pure_setup() {
 	prompt_pure_async_start
 }
 
-prompt_pure_setup "$0" "$@"
+prompt_pure_setup "$@"
