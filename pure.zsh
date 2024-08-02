@@ -280,6 +280,10 @@ prompt_pure_precmd() {
 	# check exec time and store it in a variable
 	prompt_pure_check_cmd_exec_time
 
+	# by making sure that prompt_pure_cmd_timestamp is defined here the async functions are prevented from interfering
+	# with the initial preprompt rendering
+	prompt_pure_cmd_timestamp=
+
 	# shows the full path in the title
 	prompt_pure_set_title 'expand-prompt' '%~'
 
@@ -324,6 +328,7 @@ prompt_pure_async_vcs_info() {
 
 # fastest possible way to check if repo is dirty
 prompt_pure_async_git_dirty() {
+	setopt localoptions noshwordsplit
 	local dir=$1 untracked=$2
 
 	# use cd -q to avoid side effects of changing directory, e.g. chpwd hooks
@@ -396,6 +401,7 @@ prompt_pure_async_git_upstream() {
 }
 
 prompt_pure_async_git_fetch() {
+	setopt localoptions noshwordsplit
 	local dir=$1
 
 	# use cd -q to avoid side effects of changing directory, e.g. chpwd hooks
@@ -410,7 +416,11 @@ prompt_pure_async_git_fetch() {
 	log "prompt_pure_async_git_fetch: beginning fetch"
 
 	# set GIT_TERMINAL_PROMPT=0 to disable auth prompting for git fetch (git 2.3+)
-	GIT_TERMINAL_PROMPT=0 git -c gc.auto=0 fetch
+	export GIT_TERMINAL_PROMPT=0
+	# set ssh BachMode to disable all interactive ssh password prompting
+	export GIT_SSH_COMMAND=${GIT_SSH_COMMAND:-"ssh -o BatchMode=yes"}
+
+	command git -c gc.auto=0 fetch &>/dev/null
 
 	if (( !$? )); then
 		reply[fetch]=1
@@ -424,6 +434,8 @@ prompt_pure_async_git_fetch() {
 }
 
 prompt_pure_async_start() {
+	setopt localoptions noshwordsplit
+
 	log "prompt_pure_async_start: starting async worker"
 	async_start_worker "prompt_pure" -u -n
 	async_register_callback "prompt_pure" prompt_pure_vcs_async_fsm
@@ -462,10 +474,8 @@ prompt_pure_vcs_async() {
 
 # this is a poor man's semi-state machine
 prompt_pure_vcs_async_fsm() {
-	local job=$1
-	local code=$2
-	local output=$3
-	local exec_time=$4
+	setopt localoptions noshwordsplit
+	local job=$1 code=$2 output=$3 exec_time=$4
 
 	eval $output
 
@@ -671,6 +681,7 @@ prompt_pure_vcs_async_fsm() {
 }
 
 prompt_pure_setup() {
+	local autoload_name=$1; shift
 
 	if (( ${+PURE_DEBUG} )); then
 		exec 3> >(systemd-cat -t zshpure)
@@ -702,6 +713,13 @@ prompt_pure_setup() {
 	export PROMPT_EOL_MARK=''
 
 	prompt_opts=(subst percent)
+
+	# if autoload_name or eval context differ, pure wasn't autoloaded via
+	# promptinit and we need to take care of setting the options ourselves
+	if [[ $autoload_name != prompt_pure_setup ]] || [[ $zsh_eval_context[-2] != loadautofunc ]]; then
+		# borrowed from `promptinit`, set the pure prompt options
+		setopt noprompt{bang,cr,percent,subst} "prompt${^prompt_opts[@]}"
+	fi
 
 	zmodload zsh/datetime
 	zmodload zsh/zle
@@ -800,7 +818,7 @@ prompt_pure_setup() {
 	# privileged: bright white (base03 = 15)
 	# unprivileged: highlight (base1 = 14)
 	# failed command: red
-	PROMPT="%(?.%(!.%F{15}.%F{14}).%F{red})${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%f "
+	PROMPT='%(?.%(!.%F{15}.%F{14}).%F{red})${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%f '
 
 	# construct the array of prompt rendering callbacks
 	# a prompt rendering callback should append to the preprompt=() array
@@ -816,4 +834,4 @@ prompt_pure_setup() {
 	prompt_pure_async_start
 }
 
-prompt_pure_setup "$@"
+prompt_pure_setup "$0" "$@"
