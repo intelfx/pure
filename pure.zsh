@@ -283,6 +283,8 @@ prompt_pure_preprompt_render() {
 }
 
 prompt_pure_precmd() {
+	prompt_pure_handle_keymap
+
 	# check exec time and store it in a variable
 	prompt_pure_check_cmd_exec_time
 
@@ -745,6 +747,31 @@ prompt_pure_vcs_async_fsm() {
 	esac
 }
 
+prompt_pure_handle_keymap() {
+	setopt localoptions noshwordsplit
+
+	case $KEYMAP in
+	""|main|viins)
+		# privileged: bright white (base03 = 15)
+		# unprivileged: highlight (base1 = 14)
+		# failed command: red
+		prompt_pure_style='%(?.%(!.%F{15}.%F{14}).%F{red})'
+		;;
+	vicmd)
+		# same as above, but inverted (except red which is always applied as fg)
+		prompt_pure_style='%(!.%F{15}.%F{14})%(?..%K{red})%S'
+		;;
+	esac
+}
+
+prompt_pure_update_vim_prompt_widget() {
+	prompt_pure_handle_keymap
+	zle && zle .reset-prompt
+}
+
+prompt_pure_reset_vim_prompt_widget() {
+	prompt_pure_handle_keymap
+}
 prompt_pure_setup() {
 	if (( ${+PURE_DEBUG} )); then
 		exec 3> >(systemd-cat -t zshpure)
@@ -789,8 +816,19 @@ prompt_pure_setup() {
 	autoload -Uz vcs_info
 	autoload -Uz async && async
 
+	# The add-zle-hook-widget function is not guaranteed
+	# to be available, it was added in Zsh 5.3.
+	autoload -Uz +X add-zle-hook-widget 2>/dev/null
+
 	add-zsh-hook precmd prompt_pure_precmd
 	add-zsh-hook preexec prompt_pure_preexec
+
+	zle -N prompt_pure_update_vim_prompt_widget
+	zle -N prompt_pure_reset_vim_prompt_widget
+	if (( $+functions[add-zle-hook-widget] )); then
+		add-zle-hook-widget zle-line-finish prompt_pure_reset_vim_prompt_widget
+		add-zle-hook-widget zle-keymap-select prompt_pure_update_vim_prompt_widget
+	fi
 
 	zstyle ':vcs_info:*' enable git
 	zstyle ':vcs_info:*' max-exports 3
@@ -875,10 +913,7 @@ prompt_pure_setup() {
 		prompt_pure_hostname="%(!.%F{15}.%F{10})%n$prompt_pure_hostname"
 	fi
 
-	# privileged: bright white (base03 = 15)
-	# unprivileged: highlight (base1 = 14)
-	# failed command: red
-	PROMPT='%(?.%(!.%F{15}.%F{14}).%F{red})${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%f '
+	PROMPT='${prompt_pure_style}${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%s%f%k '
 
 	# construct the array of prompt rendering callbacks
 	# a prompt rendering callback should append to the preprompt=() array
