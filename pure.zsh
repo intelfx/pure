@@ -85,7 +85,11 @@ prompt_pure_set_title() {
 
 prompt_pure_preexec() {
 	# prevent async fetch (if it is running) from interfering with user-initiated fetch
-	if [[ ${prompt_pure_vcs[fetch]} == 0 && $2 =~ (git|hub)\ .*(pull|fetch) ]]; then
+	# (including git aliases)
+	local fetch_pattern=${prompt_pure_vcs[fetch_pattern]-'pull|fetch'}
+	if [[ ${prompt_pure_vcs[fetch]} == 0 && $2 =~ (git|hub)\ (.*\ )?($fetch_pattern)(\ .*)?$ ]]; then
+		# we must flush the async jobs to cancel our git fetch in order
+		# to avoid conflicts with the user issued pull / fetch.
 		prompt_pure_async_flush
 	fi
 
@@ -269,6 +273,8 @@ prompt_pure_preprompt_render() {
 
 		# redraw prompt (also resets cursor position)
 		zle && zle .reset-prompt
+
+		setopt no_prompt_subst
 	fi
 
 	# store both unexpanded and expanded preprompt for comparison
@@ -322,6 +328,34 @@ prompt_pure_async_vcs_info() {
 	reply[working_tree]=${vcs_info_msg_0_}
 	reply[branch]=${vcs_info_msg_1_}
 	reply[action]=${vcs_info_msg_2_:#'(none)'}
+
+	declare -p reply
+}
+
+prompt_pure_async_git_aliases() {
+	setopt localoptions noshwordsplit
+	local dir=$1
+
+	# use cd -q to avoid side effects of changing directory, e.g. chpwd hooks
+	builtin cd -q $dir
+
+	declare -A reply
+
+	# list all aliases and split on newline.
+	local -a gitalias parts pullalias=(pull fetch)
+	local line aliasname
+	gitalias=(${(@f)"$(command git config --get-regexp "^alias\.")"})
+	for line in $gitalias; do
+		parts=(${(@)=line})           # split line on spaces
+		aliasname=${parts[1]#alias.}  # grab the name (alias.[name])
+		shift parts                   # remove aliasname
+
+		# check alias for pull or fetch (must be exact match).
+		if [[ $parts =~ ^(.*\ )?(pull|fetch)(\ .*)?$ ]]; then
+			pullalias+=($aliasname)
+		fi
+	done
+	reply[fetch_pattern]="${(j:|:)pullalias}"  # join on pipe (for use in regex)
 
 	declare -p reply
 }
@@ -497,6 +531,11 @@ prompt_pure_vcs_async_fsm() {
 			fi
 			;;
 
+		prompt_pure_async_git_aliases)
+			# merge in new data
+			prompt_pure_vcs+=("${(kv)reply[@]}")
+			;;
+
 		prompt_pure_async_vcs_info)
 			# only perform tasks inside git working tree
 			if ! [[ -n ${reply[working_tree]} ]]; then
@@ -618,6 +657,14 @@ prompt_pure_vcs_async_fsm() {
 				log "prompt_pure_vcs_async_fsm: starting upstream check"
 				async_job "prompt_pure" \
 					prompt_pure_async_git_upstream \
+					${prompt_pure_vcs[working_tree]}
+			fi
+
+			# aliases...
+			if ! (( ${+prompt_pure_vcs[fetch_pattern]} )); then
+				log "prompt_pure_vcs_async_fsm: starting aliases check"
+				async_job "prompt_pure" \
+					prompt_pure_async_git_aliases \
 					${prompt_pure_vcs[working_tree]}
 			fi
 			;;
