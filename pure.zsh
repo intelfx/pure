@@ -475,7 +475,7 @@ prompt_pure_async_start() {
 	setopt localoptions noshwordsplit
 
 	log "prompt_pure_async_start: starting async worker"
-	async_start_worker "prompt_pure" -u -n
+	async_start_worker "prompt_pure" -u
 	async_register_callback "prompt_pure" prompt_pure_vcs_async_fsm
 }
 
