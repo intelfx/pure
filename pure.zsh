@@ -547,7 +547,8 @@ prompt_pure_vcs_async_fsm() {
 				# XXX: work around "async_job:zpty:12: no such pty command: prompt_pure"
 				prompt_pure_async_restart
 				# XXX: do we want to restart async jobs here?
-				prompt_pure_async_vcs_info "$PWD"
+				prompt_pure_vcs_async
+				return
 			fi
 			;;
 
