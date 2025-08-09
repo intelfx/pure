@@ -529,26 +529,28 @@ prompt_pure_vcs_async() {
 # this is a poor man's semi-state machine
 prompt_pure_vcs_async_fsm() {
 	setopt localoptions noshwordsplit
-	local job=$1 code=$2 output=$3 exec_time=$4
+	local job=$1 code=$2 stdout=$3 exec_time=$4 stderr=$5 pending=$6
 
-	eval $output
+	eval $stdout
 
 	if (( ${+reply} )); then
-		log "prompt_pure_async_fsm: job '$job' exec_time '$exec_time' output '$output'"
+		log "prompt_pure_async_fsm: job=${(qq)job} code ${(qq)code} exec_time ${(qq)exec_time} stdout ${(qq)output} stderr ${(qq)stderr} ${${(M)pending:#1}:+"(pending)"}"
 	else
-		log "prompt_pure_async_fsm: job '$job' exec_time '$exec_time' output '$output' no reply"
+		err "prompt_pure_async_fsm: job=${(qq)job} code ${(qq)code} exec_time ${(qq)exec_time} stdout ${(qq)output} stderr ${(qq)stderr} ${${(M)pending:#1}:+"(pending)"} (no reply)"
 	fi
 
 	case $job in
 		'[async]')
 			if (( code != 0 )); then
 				# our worker died unexpectedly
-				log "prompt_pure_vcs_async_fsm: worker died (rc=$code), restarting"
+				err "prompt_pure_vcs_async_fsm: worker died (rc=$code, stderr=$stderr), restarting"
 				# XXX: work around "async_job:zpty:12: no such pty command: prompt_pure"
 				prompt_pure_async_restart
 				# XXX: do we want to restart async jobs here?
 				prompt_pure_vcs_async
 				return
+			else
+				err "prompt_pure_vcs_async_fsm: worker reported exceptional condition (rc=$code, stderr=$stderr)"
 			fi
 			;;
 
