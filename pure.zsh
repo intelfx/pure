@@ -780,11 +780,23 @@ prompt_pure_setup() {
 		declare -g log_enabled=1
 
 		function log() {
-			echo "[$PWD] $*" >&3
+			echo "[$PWD] :: $*" >&3
+		}
+
+		function notice() {
+			echo "<5>[$PWD] :: $*" >&3
+		}
+
+		function warn() {
+			echo "<4>[$PWD] :: $*" >&3
+		}
+
+		function err() {
+			echo "<3>[$PWD] E: $*" >&3
 		}
 
 		function logcmd() {
-			echo -n "[$PWD] " >&3
+			echo -n "[$PWD]  + ${(qq)@}" >&3
 			command "$@" >&3 2>&3
 		}
 	else
@@ -792,6 +804,18 @@ prompt_pure_setup() {
 
 		function log() {
 			:
+		}
+
+		function notice() {
+			echo "<5>[$PWD] :: $*" > >(systemd-cat -t zshpure)
+		}
+
+		function warn() {
+			echo "<4>[$PWD] E: $*" > >(systemd-cat -t zshpure)
+		}
+
+		function err() {
+			echo "<3>[$PWD] E: $*" > >(systemd-cat -t zshpure)
 		}
 
 		function logcmd() {
