@@ -61,8 +61,9 @@ prompt_pure_clear_screen() {
 		zle -I
 		# clear screen and move cursor to (0, 0)
 		print -n ${termcap[clear]}
-		# print preprompt
+		# update preprompt and force prompt redisplay
 		prompt_pure_preprompt_render precmd
+		zle .reset-prompt
 	fi
 }
 
@@ -227,52 +228,26 @@ prompt_pure_preprompt_render() {
 
 	# if executing through precmd, do not perform fancy terminal editing
 	if [[ "$1" == "precmd" ]]; then
-		print -P "\n${preprompt}"
+		# Store preprompt in a global variable for inclusion in PROMPT.
+		# This ensures the preprompt is rendered as part of the prompt
+		# (between OSC 133;A and 133;B markers) rather than as terminal
+		# output, which fixes compatibility with terminal shell integrations
+		# (e.g. JetBrains, VS Code) that track prompt/output boundaries.
+		typeset -g prompt_pure_preprompt_string="$preprompt"
 	else
 		# only redraw if the expanded preprompt has changed
 		[[ "${prompt_pure_last_preprompt[2]}" != "${(S%%)preprompt}" ]] || return
 
-		# calculate length of preprompt and store it locally in preprompt_length
-		integer preprompt_length=$(prompt_pure_string_length $preprompt)
-		# calculate number of preprompt lines for redraw purposes
-		integer lines=$(( ( preprompt_length - 1 ) / COLUMNS + 1 ))
-
-		# calculate previous preprompt lines to figure out how the new preprompt should behave
-		integer last_preprompt_length=$(prompt_pure_string_length "${prompt_pure_last_preprompt[1]}")
-		integer last_lines=$(( ( last_preprompt_length - 1 ) / COLUMNS + 1 ))
-
-		# clr_prev_preprompt erases visual artifacts from previous preprompt
-		local clr_prev_preprompt
-		if (( last_lines > lines )); then
-			# move cursor up by last_lines, clear the line and move it down by one line
-			clr_prev_preprompt="\e[${last_lines}A\e[2K\e[1B"
-			while (( last_lines - lines > 1 )); do
-				# clear the line and move cursor down by one
-				clr_prev_preprompt+='\e[2K\e[1B'
-				(( last_lines-- ))
-			done
-
-			# move cursor into correct position for preprompt update
-			clr_prev_preprompt+="\e[${lines}B"
-		# create more space for preprompt if new preprompt has more lines than last
-		elif (( last_lines < lines )); then
-			# move cursor using newlines because ansi cursor movement can't push the cursor beyond the last line
-			printf $'\n'%.0s {1..$(( lines - last_lines ))}
-		fi
-
-		# disable clearing of line if last char of preprompt is last column of terminal
-		local clr='\e[K'
-		(( COLUMNS * lines == preprompt_length )) && clr=
-
-		# modify previous preprompt
-		print -Pn "${clr_prev_preprompt}\e[${lines}A\e[${COLUMNS}D${preprompt}${clr}\n"
+		# update the preprompt variable; zle .reset-prompt will
+		# re-expand PROMPT (which references this variable)
+		typeset -g prompt_pure_preprompt_string="$preprompt"
 
 		if [[ $prompt_subst_status = 'on' ]]; then
-			# re-eanble prompt_subst for expansion on PS1
+			# re-enable prompt_subst for expansion on PS1
 			setopt prompt_subst
 		fi
 
-		# redraw prompt (also resets cursor position)
+		# redraw prompt (handles multi-line prompt changes correctly)
 		zle && zle .reset-prompt
 
 		setopt no_prompt_subst
@@ -941,7 +916,13 @@ prompt_pure_setup() {
 		prompt_pure_hostname="%(!.%F{15}.%F{10})%n$prompt_pure_hostname"
 	fi
 
-	PROMPT='${prompt_pure_style}${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%s%f%k '
+	# The preprompt (path, git info, hostname, exec time) is stored in
+	# prompt_pure_preprompt_string and rendered as part of PROMPT, rather
+	# than printed separately via `print -P`. This ensures compatibility
+	# with terminal shell integrations (JetBrains, VS Code, iTerm2, etc.)
+	# that use the OSC 133 protocol to mark prompt/output boundaries.
+	typeset -g prompt_pure_preprompt_string=""
+	PROMPT=$'\n''${prompt_pure_preprompt_string}'$'\n''${prompt_pure_style}${PURE_PROMPT_SYMBOL:-%(!.#.\$)}%s%f%k '
 
 	# construct the array of prompt rendering callbacks
 	# a prompt rendering callback should append to the preprompt=() array
